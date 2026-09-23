@@ -36,28 +36,41 @@ async function initCheerpJ() {
     try {
         output.innerHTML = '<span class="loading">Booting CheerpJ JVM...</span>';
 
-        await cheerpjInit({
-            status: "none"
-        });
+        // ١. تحميل CheerpJ
+        await cheerpjInit({ status: "none" });
+        console.log("✅ CheerpJ initialized");
 
         output.innerHTML = '<span class="loading">Loading DataShield JARs...</span>';
 
-        // ⚡ المسار الصح: /app/{repo-name}/libs/...
-        const lib = await cheerpjRunLibrary(
-            "/app/datashield-demo/libs/datashield-core-1.0.0-SNAPSHOT.jar:" +
-            "/app/datashield-demo/libs/jsqlparser-4.9.jar"
-        );
+        // ٢. تحميل الـ JARs - جرب المسارات دي
+        const jarPath = "/app/libs/datashield-core-1.0.0-SNAPSHOT.jar:" +
+                        "/app/libs/jsqlparser-4.9.jar";
+        console.log("🔍 Trying to load from:", jarPath);
 
-        // ⚡ الـ package الجديد: core مش agent
+        const lib = await cheerpjRunLibrary(jarPath);
+        console.log("✅ Library loaded:", lib);
+
+        // ٣. الوصول للكلاس
+        console.log("🔍 Accessing class com.datashield.core.SqlModifier...");
         SqlModifierClass = await lib.com.datashield.core.SqlModifier;
+        console.log("✅ SqlModifierClass:", SqlModifierClass);
 
         cheerpjReady = true;
         document.getElementById("run").disabled = false;
         output.innerHTML = '<span class="result">✅ Ready! Click "Process" to try.</span>';
 
     } catch (err) {
-        console.error(err);
-        output.innerHTML = `<span class="error">❌ Failed to load: ${err.message}</span>`;
+        console.error("❌ FULL ERROR:", err);
+        console.error("❌ Error type:", typeof err);
+        console.error("❌ Error string:", String(err));
+        console.error("❌ Error stack:", err && err.stack);
+        
+        // عرض كل حاجة
+        const errorMsg = err && (err.message || err.toString() || JSON.stringify(err));
+        output.innerHTML = `<span class="error">❌ Failed: ${errorMsg}</span>
+            <div style="margin-top:8px;font-size:11px;color:#94a3b8;">
+            Check Console (F12) for details
+            </div>`;
     }
 }
 // =========================================================
