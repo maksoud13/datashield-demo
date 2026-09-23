@@ -14,33 +14,48 @@ let outputResolver = null;
 // =========================================================
 async function initCheerpJ() {
     const output = document.getElementById("output");
-    output.innerHTML = '<span class="loading">Booting CheerpJ...</span>';
+    output.innerHTML = '<span class="loading">Testing JVM...</span>';
 
     try {
         await cheerpjInit({ status: "none" });
         console.log("✅ CheerpJ initialized");
 
-        // نمسك stdout بتاع Java
+        // capture output
+        capturedOutput = [];
         if (typeof cheerpjSetConsole === "function") {
             cheerpjSetConsole((text) => {
                 capturedOutput.push(text);
-                if (outputResolver) {
-                    outputResolver(capturedOutput.join(""));
-                    outputResolver = null;
-                }
-                console.log("[Java]", text);
+                console.log("[Java stdout]", JSON.stringify(text));
             });
+            console.log("✅ Console capture set up");
+        } else {
+            console.warn("⚠️ cheerpjSetConsole not available");
         }
 
-        cheerpjReady = true;
-        document.getElementById("run").disabled = false;
-        output.innerHTML = '<span class="result">✅ Ready! Click "Process".</span>';
+        // نادي على Hello
+        console.log("🔵 Calling Hello.main...");
+        await cheerpjRunMain(
+            "com.datashield.core.Hello",
+            "/app/libs/datashield-core-1.0.0-SNAPSHOT.jar",
+            "arg1", "arg2", "arg3"
+        );
+        console.log("🔵 Hello.main finished");
+
+        // انتظر شوية
+        await new Promise(r => setTimeout(r, 1000));
+
+        console.log("📋 Captured output:", capturedOutput);
+        output.innerHTML = `
+            <div style="color:#94a3b8;">Captured:</div>
+            <pre>${escapeHtml(capturedOutput.join(""))}</pre>
+            <div style="color:#94a3b8;margin-top:10px;">Count: ${capturedOutput.length}</div>
+        `;
+
     } catch (e) {
-        output.innerHTML = `<span class="error">❌ Init failed: ${e}</span>`;
-        console.error(e);
+        console.error("❌ Init error:", e);
+        output.innerHTML = `<span class="error">❌ ${e && e.message ? e.message : String(e)}</span>`;
     }
 }
-
 // =========================================================
 // Process SQL
 // =========================================================
