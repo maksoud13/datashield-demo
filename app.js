@@ -36,20 +36,20 @@ async function initCheerpJ() {
     try {
         output.innerHTML = '<span class="loading">Booting CheerpJ JVM...</span>';
 
-        // تهيئة CheerpJ
         await cheerpjInit({
             status: "none"
         });
 
         output.innerHTML = '<span class="loading">Loading DataShield JARs...</span>';
 
-        // تحميل الـ JARs (SqlModifier + JSqlParser)
+        // ⚡ المسار الصح: /app/{repo-name}/libs/...
         const lib = await cheerpjRunLibrary(
-            "/app/datashield-demo/libs/datashield-core.jar:/app/datashield-demo/libs/jsqlparser-4.9.jar"
+            "/app/datashield-demo/libs/datashield-core-1.0.0-SNAPSHOT.jar:" +
+            "/app/datashield-demo/libs/jsqlparser-4.9.jar"
         );
 
-        // الوصول لكلاس SqlModifier
-        SqlModifierClass = await lib.com.datashield.agent.SqlModifier;
+        // ⚡ الـ package الجديد: core مش agent
+        SqlModifierClass = await lib.com.datashield.core.SqlModifier;
 
         cheerpjReady = true;
         document.getElementById("run").disabled = false;
@@ -60,7 +60,6 @@ async function initCheerpJ() {
         output.innerHTML = `<span class="error">❌ Failed to load: ${err.message}</span>`;
     }
 }
-
 // =========================================================
 // 2. تنفيذ الفلتر عبر CheerpJ (استدعاء Java مباشر!)
 // =========================================================
