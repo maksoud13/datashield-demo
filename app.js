@@ -34,10 +34,9 @@ async function initCheerpJ() {
 
         // نادي على Hello
         console.log("🔵 Calling Hello.main...");
-        await cheerpjRunMain(
-            "com.datashield.core.Hello",
-            "/app/libs/datashield-core-1.0.0-SNAPSHOT.jar",
-            "arg1", "arg2", "arg3"
+        const lib = await cheerpjRunLibrary(
+            "/app/datashield-demo/libs/datashield-core-1.0.0-SNAPSHOT.jar:" +
+            "/app/datashield-demo/libs/jsqlparser-4.9.jar"
         );
         console.log("🔵 Hello.main finished");
 
