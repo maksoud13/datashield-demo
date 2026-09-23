@@ -1,29 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DataShield — Live Demo</title>
+    <base href="https://maksoud13.github.io/datashield-demo/">
     <link rel="stylesheet" href="styles.css">
-        <base href="https://maksoud13.github.io/datashield-demo/">
-    <!-- CheerpJ runtime -->
-    <script src="https://cjrtnc.leaningtech.com/4.0/cj3loader.js"></script>
 </head>
+
 <body>
     <div class="container">
         <h1>🛡️ DataShield</h1>
-        <p class="subtitle">Java library running in your browser via CheerpJ</p>
+        <p class="subtitle">Java library that automatically injects security filters into SQL queries</p>
 
         <div class="examples">
             <span>Try:</span>
             <button data-example="simple">Simple</button>
             <button data-example="or-leak">⚠️ OR leak</button>
+            <button data-example="join">JOIN</button>
             <button data-example="subquery">Subquery</button>
             <button data-example="union">UNION</button>
         </div>
 
         <label>SQL SELECT:</label>
-        <textarea id="sql" rows="4"></textarea>
+        <textarea id="sql" rows="4" spellcheck="false"></textarea>
 
         <div class="row">
             <div>
@@ -40,10 +41,29 @@
 
         <label>Result:</label>
         <div id="output" class="output">
-            <span class="loading">Loading CheerpJ runtime...</span>
+            <span class="placeholder">Click "Process" to try...</span>
         </div>
+
+        <div class="info-panel">
+            <h3>🧠 How it works</h3>
+            <ul>
+                <li>Parses SQL into an AST using JSqlParser</li>
+                <li>Injects <code>column = 'value'</code> into the WHERE clause</li>
+                <li>🛡️ Wraps OR expressions in parentheses to prevent leaks</li>
+                <li>Recursively modifies subqueries, JOINs, and UNIONs</li>
+            </ul>
+            <p style="color:#94a3b8;font-size:12px;margin-top:12px;">
+                ⚡ Powered by real Java code running on <a href="https://datashield-demo-api.fly.dev" target="_blank"
+                    style="color:#38bdf8;">Fly.io</a>
+            </p>
+        </div>
+
+        <footer>
+            <a href="https://github.com/maksoud13/datashield-demo" target="_blank">GitHub</a> · DataShield Demo v1.0
+        </footer>
     </div>
 
     <script src="app.js"></script>
 </body>
+
 </html>
