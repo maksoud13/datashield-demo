@@ -45,7 +45,7 @@ async function initCheerpJ() {
 
         // تحميل الـ JARs (SqlModifier + JSqlParser)
         const lib = await cheerpjRunLibrary(
-            "/app/libs/datashield-core.jar:/app/libs/jsqlparser-4.9.jar"
+            "/app/datashield-demo/libs/datashield-core.jar:/app/datashield-demo/libs/jsqlparser-4.9.jar"
         );
 
         // الوصول لكلاس SqlModifier
