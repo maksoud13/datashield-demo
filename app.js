@@ -10,51 +10,40 @@ let capturedOutput = [];
 let outputResolver = null;
 
 // =========================================================
-// CheerpJ Init مع Console Capture
+// CheerpJ Init مع stdout callback
 // =========================================================
 async function initCheerpJ() {
     const output = document.getElementById("output");
-    output.innerHTML = '<span class="loading">Testing JVM...</span>';
+    output.innerHTML = '<span class="loading">Booting CheerpJ...</span>';
 
     try {
-        await cheerpjInit({ status: "none" });
-        console.log("✅ CheerpJ initialized");
-
-        // capture output
-        capturedOutput = [];
-        if (typeof cheerpjSetConsole === "function") {
-            cheerpjSetConsole((text) => {
-                capturedOutput.push(text);
+        await cheerpjInit({
+            status: "none",
+            // ⚡ الـ API الصح: stdout و stderr كـ callbacks
+            stdout: (text) => {
                 console.log("[Java stdout]", JSON.stringify(text));
-            });
-            console.log("✅ Console capture set up");
-        } else {
-            console.warn("⚠️ cheerpjSetConsole not available");
-        }
+                capturedOutput.push(text);
+                if (outputResolver) {
+                    outputResolver();
+                    outputResolver = null;
+                }
+            },
+            stderr: (text) => {
+                console.log("[Java stderr]", JSON.stringify(text));
+                capturedOutput.push("[ERR] " + text);
+            }
+        });
 
-        // نادي على Hello
-        console.log("🔵 Calling Hello.main...");
-        const lib = await cheerpjRunLibrary(
-            "/app/datashield-demo/libs/datashield-core-1.0.0-SNAPSHOT.jar:" +
-            "/app/datashield-demo/libs/jsqlparser-4.9.jar"
-        );
-        console.log("🔵 Hello.main finished");
-
-        // انتظر شوية
-        await new Promise(r => setTimeout(r, 1000));
-
-        console.log("📋 Captured output:", capturedOutput);
-        output.innerHTML = `
-            <div style="color:#94a3b8;">Captured:</div>
-            <pre>${escapeHtml(capturedOutput.join(""))}</pre>
-            <div style="color:#94a3b8;margin-top:10px;">Count: ${capturedOutput.length}</div>
-        `;
-
+        console.log("✅ CheerpJ initialized with stdout callback");
+        cheerpjReady = true;
+        document.getElementById("run").disabled = false;
+        output.innerHTML = '<span class="result">✅ Ready! Click "Process".</span>';
     } catch (e) {
-        console.error("❌ Init error:", e);
-        output.innerHTML = `<span class="error">❌ ${e && e.message ? e.message : String(e)}</span>`;
+        output.innerHTML = `<span class="error">❌ Init failed: ${e}</span>`;
+        console.error(e);
     }
 }
+
 // =========================================================
 // Process SQL
 // =========================================================
@@ -77,33 +66,31 @@ async function processSql() {
     capturedOutput = [];
 
     try {
-        // نشغل الـ Java main
+        // شغل Java
         await cheerpjRunMain(
             "com.datashield.core.Cli",
-            "/app/libs/datashield-core-1.0.0-SNAPSHOT.jar:/app/libs/jsqlparser-4.9.jar",
+            "/app/datashield-demo/libs/datashield-core-1.0.0-SNAPSHOT.jar:" +
+            "/app/datashield-demo/libs/jsqlparser-4.9.jar",
             sql, col, val
         );
 
-        // نستنى شوية لحد ما الـ console يطبع كل حاجة
+        // استنى شوية لحد ما stdout يوصل
         await new Promise(r => setTimeout(r, 500));
 
         const fullOutput = capturedOutput.join("");
-        console.log("Full output:", fullOutput);
+        console.log("📋 Full output:", JSON.stringify(fullOutput));
 
-        // نستخرج النتيجة من بين RESULT_START و RESULT_END
+        // استخرج النتيجة
         const match = fullOutput.match(/RESULT_START\n([\s\S]*?)\nRESULT_END/);
         if (match) {
-            const result = match[1].trim();
-            showResult(sql, result);
+            showResult(sql, match[1].trim());
         } else {
             const errMatch = fullOutput.match(/ERROR_START\n([\s\S]*?)\nERROR_END/);
-            const errMsg = errMatch ? errMatch[1].trim() : "Unknown error";
-            output.innerHTML = `<span class="error">❌ ${escapeHtml(errMsg)}</span>
-                <div style="margin-top:10px;font-size:11px;color:#94a3b8;">Raw: ${escapeHtml(fullOutput)}</div>`;
+            const errMsg = errMatch ? errMatch[1].trim() : "No result. Output: " + fullOutput;
+            output.innerHTML = `<span class="error">❌ ${escapeHtml(errMsg)}</span>`;
         }
-
     } catch (e) {
-        output.innerHTML = `<span class="error">❌ Error: ${e}</span>`;
+        output.innerHTML = `<span class="error">❌ ${e && e.message ? e.message : String(e)}</span>`;
         console.error(e);
     } finally {
         runBtn.disabled = false;
