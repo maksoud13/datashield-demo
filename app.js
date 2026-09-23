@@ -1,77 +1,48 @@
-// =========================================================
-// DataShield Demo — runs REAL Java SqlModifier via CheerpJ
-// =========================================================
-
 const EXAMPLES = {
-    simple: {
-        sql: "SELECT * FROM users",
-        col: "tenant_id",
-        val: "TENANT_A"
-    },
-    "or-leak": {
-        sql: "SELECT * FROM orders WHERE status = 'PENDING' OR status = 'SHIPPED'",
-        col: "tenant_id",
-        val: "TENANT_A"
-    },
-    subquery: {
-        sql: "SELECT * FROM orders WHERE total > (SELECT AVG(total) FROM orders)",
-        col: "tenant_id",
-        val: "TENANT_A"
-    },
-    union: {
-        sql: "SELECT name FROM users WHERE age > 18 UNION SELECT name FROM users WHERE age < 5",
-        col: "tenant_id",
-        val: "TENANT_A"
-    }
+    simple: { sql: "SELECT * FROM users", col: "tenant_id", val: "TENANT_A" },
+    "or-leak": { sql: "SELECT * FROM orders WHERE status = 'PENDING' OR status = 'SHIPPED'", col: "tenant_id", val: "TENANT_A" },
+    subquery: { sql: "SELECT * FROM orders WHERE total > (SELECT AVG(total) FROM orders)", col: "tenant_id", val: "TENANT_A" },
+    union: { sql: "SELECT name FROM users WHERE age > 18 UNION SELECT name FROM users WHERE age < 5", col: "tenant_id", val: "TENANT_A" }
 };
 
-let SqlModifierClass = null;   // سيتم تحميله من JVM
 let cheerpjReady = false;
+let capturedOutput = [];
+let outputResolver = null;
 
 // =========================================================
-// 1. تهيئة CheerpJ وتحميل الـ JARs
+// CheerpJ Init مع Console Capture
 // =========================================================
 async function initCheerpJ() {
     const output = document.getElementById("output");
-    let log = "";
-    const addLog = (msg) => { 
-        log += msg + "<br>"; 
-        output.innerHTML = log; 
-        console.log(msg); 
-    };
+    output.innerHTML = '<span class="loading">Booting CheerpJ...</span>';
 
-    addLog("1️⃣ Checking cheerpjInit...");
-    addLog("   typeof cheerpjInit = " + typeof cheerpjInit);
-    
-    addLog("2️⃣ Fetching JARs...");
-    try {
-        const r1 = await fetch("libs/datashield-core-1.0.0-SNAPSHOT.jar", {method: "HEAD"});
-        addLog("   core.jar: " + r1.status);
-        const r2 = await fetch("libs/jsqlparser-4.9.jar", {method: "HEAD"});
-        addLog("   jsqlparser.jar: " + r2.status);
-    } catch(e) { addLog("   ❌ Fetch error: " + e); }
-
-    addLog("3️⃣ Initializing CheerpJ...");
     try {
         await cheerpjInit({ status: "none" });
-        addLog("   ✅ CheerpJ ready");
-    } catch(e) { addLog("   ❌ " + e); return; }
+        console.log("✅ CheerpJ initialized");
 
-    addLog("4️⃣ Loading library...");
-    try {
-        const lib = await cheerpjRunLibrary("/app/libs/datashield-core-1.0.0-SNAPSHOT.jar:/app/libs/jsqlparser-4.9.jar");
-        addLog("   ✅ lib loaded");
-        addLog("   lib.com = " + (lib.com ? "yes" : "no"));
-        SqlModifierClass = await lib.com.datashield.core.SqlModifier;
-        addLog("   ✅ Class = " + SqlModifierClass);
+        // نمسك stdout بتاع Java
+        if (typeof cheerpjSetConsole === "function") {
+            cheerpjSetConsole((text) => {
+                capturedOutput.push(text);
+                if (outputResolver) {
+                    outputResolver(capturedOutput.join(""));
+                    outputResolver = null;
+                }
+                console.log("[Java]", text);
+            });
+        }
+
         cheerpjReady = true;
         document.getElementById("run").disabled = false;
-    } catch(e) { 
-        addLog("   ❌ " + (e && e.message ? e.message : String(e))); 
+        output.innerHTML = '<span class="result">✅ Ready! Click "Process".</span>';
+    } catch (e) {
+        output.innerHTML = `<span class="error">❌ Init failed: ${e}</span>`;
+        console.error(e);
     }
 }
+
 // =========================================================
-// 2. تنفيذ الفلتر عبر CheerpJ (استدعاء Java مباشر!)
+// Process SQL
 // =========================================================
 async function processSql() {
     if (!cheerpjReady) return;
@@ -88,28 +59,38 @@ async function processSql() {
     }
 
     runBtn.disabled = true;
-    output.innerHTML = '<span class="loading">Processing...</span>';
+    output.innerHTML = '<span class="loading">Processing via Java...</span>';
+    capturedOutput = [];
 
     try {
-        // ⚡ استدعاء Java مباشرة!
-        const result = await SqlModifierClass.addFilter(sql, col, val);
-
-        // تظليل الفلتر المضاف
-        const escaped = escapeHtml(result);
-        const highlighted = escaped.replace(
-            new RegExp(`(${escapeRegex(col)}\\s*=\\s*'[^']*')`, "g"),
-            '<span class="highlight">$1</span>'
+        // نشغل الـ Java main
+        await cheerpjRunMain(
+            "com.datashield.core.Cli",
+            "/app/libs/datashield-core-1.0.0-SNAPSHOT.jar:/app/libs/jsqlparser-4.9.jar",
+            sql, col, val
         );
 
-        output.innerHTML = `
-            <div style="color:#94a3b8;margin-bottom:6px;">Input:</div>
-            <div style="opacity:0.7;">${escapeHtml(sql)}</div>
-            <div style="color:#38bdf8;margin:10px 0;">⬇</div>
-            <div style="color:#94a3b8;margin-bottom:6px;">Output (via real Java code):</div>
-            <div class="result">${highlighted}</div>
-        `;
-    } catch (err) {
-        output.innerHTML = `<span class="error">❌ ${escapeHtml(err.message || err)}</span>`;
+        // نستنى شوية لحد ما الـ console يطبع كل حاجة
+        await new Promise(r => setTimeout(r, 500));
+
+        const fullOutput = capturedOutput.join("");
+        console.log("Full output:", fullOutput);
+
+        // نستخرج النتيجة من بين RESULT_START و RESULT_END
+        const match = fullOutput.match(/RESULT_START\n([\s\S]*?)\nRESULT_END/);
+        if (match) {
+            const result = match[1].trim();
+            showResult(sql, result);
+        } else {
+            const errMatch = fullOutput.match(/ERROR_START\n([\s\S]*?)\nERROR_END/);
+            const errMsg = errMatch ? errMatch[1].trim() : "Unknown error";
+            output.innerHTML = `<span class="error">❌ ${escapeHtml(errMsg)}</span>
+                <div style="margin-top:10px;font-size:11px;color:#94a3b8;">Raw: ${escapeHtml(fullOutput)}</div>`;
+        }
+
+    } catch (e) {
+        output.innerHTML = `<span class="error">❌ Error: ${e}</span>`;
+        console.error(e);
     } finally {
         runBtn.disabled = false;
     }
@@ -118,6 +99,23 @@ async function processSql() {
 // =========================================================
 // Helpers
 // =========================================================
+function showResult(original, modified) {
+    const escaped = escapeHtml(modified);
+    const col = document.getElementById("col").value;
+    const highlighted = escaped.replace(
+        new RegExp(`(${escapeRegex(col)}\\s*=\\s*'[^']*')`, "g"),
+        '<span class="highlight">$1</span>'
+    );
+
+    document.getElementById("output").innerHTML = `
+        <div style="color:#94a3b8;margin-bottom:6px;">Input:</div>
+        <div style="opacity:0.7;">${escapeHtml(original)}</div>
+        <div style="color:#38bdf8;margin:10px 0;">⬇</div>
+        <div style="color:#94a3b8;margin-bottom:6px;">Output (via real Java):</div>
+        <div class="result">${highlighted}</div>
+    `;
+}
+
 function escapeHtml(s) {
     if (!s) return "";
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -131,7 +129,6 @@ function escapeRegex(s) {
 // Init
 // =========================================================
 document.addEventListener("DOMContentLoaded", () => {
-    // تحميل مثال افتراضي
     const firstEx = EXAMPLES.simple;
     document.getElementById("sql").value = firstEx.sql;
     document.getElementById("col").value = firstEx.col;
@@ -151,6 +148,5 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // بدء تحميل CheerpJ
     initCheerpJ();
 });
