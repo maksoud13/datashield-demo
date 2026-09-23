@@ -33,44 +33,41 @@ let cheerpjReady = false;
 // =========================================================
 async function initCheerpJ() {
     const output = document.getElementById("output");
+    let log = "";
+    const addLog = (msg) => { 
+        log += msg + "<br>"; 
+        output.innerHTML = log; 
+        console.log(msg); 
+    };
+
+    addLog("1️⃣ Checking cheerpjInit...");
+    addLog("   typeof cheerpjInit = " + typeof cheerpjInit);
+    
+    addLog("2️⃣ Fetching JARs...");
     try {
-        output.innerHTML = '<span class="loading">Booting CheerpJ JVM...</span>';
+        const r1 = await fetch("libs/datashield-core-1.0.0-SNAPSHOT.jar", {method: "HEAD"});
+        addLog("   core.jar: " + r1.status);
+        const r2 = await fetch("libs/jsqlparser-4.9.jar", {method: "HEAD"});
+        addLog("   jsqlparser.jar: " + r2.status);
+    } catch(e) { addLog("   ❌ Fetch error: " + e); }
 
-        // ١. تحميل CheerpJ
+    addLog("3️⃣ Initializing CheerpJ...");
+    try {
         await cheerpjInit({ status: "none" });
-        console.log("✅ CheerpJ initialized");
+        addLog("   ✅ CheerpJ ready");
+    } catch(e) { addLog("   ❌ " + e); return; }
 
-        output.innerHTML = '<span class="loading">Loading DataShield JARs...</span>';
-
-        // ٢. تحميل الـ JARs - جرب المسارات دي
-        const jarPath = "/app/libs/datashield-core-1.0.0-SNAPSHOT.jar:" +
-                        "/app/libs/jsqlparser-4.9.jar";
-        console.log("🔍 Trying to load from:", jarPath);
-
-        const lib = await cheerpjRunLibrary(jarPath);
-        console.log("✅ Library loaded:", lib);
-
-        // ٣. الوصول للكلاس
-        console.log("🔍 Accessing class com.datashield.core.SqlModifier...");
+    addLog("4️⃣ Loading library...");
+    try {
+        const lib = await cheerpjRunLibrary("/app/libs/datashield-core-1.0.0-SNAPSHOT.jar:/app/libs/jsqlparser-4.9.jar");
+        addLog("   ✅ lib loaded");
+        addLog("   lib.com = " + (lib.com ? "yes" : "no"));
         SqlModifierClass = await lib.com.datashield.core.SqlModifier;
-        console.log("✅ SqlModifierClass:", SqlModifierClass);
-
+        addLog("   ✅ Class = " + SqlModifierClass);
         cheerpjReady = true;
         document.getElementById("run").disabled = false;
-        output.innerHTML = '<span class="result">✅ Ready! Click "Process" to try.</span>';
-
-    } catch (err) {
-        console.error("❌ FULL ERROR:", err);
-        console.error("❌ Error type:", typeof err);
-        console.error("❌ Error string:", String(err));
-        console.error("❌ Error stack:", err && err.stack);
-        
-        // عرض كل حاجة
-        const errorMsg = err && (err.message || err.toString() || JSON.stringify(err));
-        output.innerHTML = `<span class="error">❌ Failed: ${errorMsg}</span>
-            <div style="margin-top:8px;font-size:11px;color:#94a3b8;">
-            Check Console (F12) for details
-            </div>`;
+    } catch(e) { 
+        addLog("   ❌ " + (e && e.message ? e.message : String(e))); 
     }
 }
 // =========================================================
