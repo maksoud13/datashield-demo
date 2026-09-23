@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataShield — Live Demo</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- CheerpJ runtime -->
+    <script src="https://cjrtnc.leaningtech.com/3.0/cj3loader.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ DataShield</h1>
+        <p class="subtitle">Java library running in your browser via CheerpJ</p>
+
+        <div class="examples">
+            <span>Try:</span>
+            <button data-example="simple">Simple</button>
+            <button data-example="or-leak">⚠️ OR leak</button>
+            <button data-example="subquery">Subquery</button>
+            <button data-example="union">UNION</button>
+        </div>
+
+        <label>SQL SELECT:</label>
+        <textarea id="sql" rows="4"></textarea>
+
+        <div class="row">
+            <div>
+                <label>Filter Column:</label>
+                <input id="col" value="tenant_id">
+            </div>
+            <div>
+                <label>Filter Value:</label>
+                <input id="val" value="TENANT_A">
+            </div>
+        </div>
+
+        <button id="run">🔄 Process</button>
+
+        <label>Result:</label>
+        <div id="output" class="output">
+            <span class="loading">Loading CheerpJ runtime...</span>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
